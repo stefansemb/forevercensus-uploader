@@ -25,7 +25,7 @@ import { createInterface } from "node:readline/promises";
 import * as sea from "node:sea";
 import { gzipSync } from "node:zlib";
 
-const VERSION = "1.0.0";
+const VERSION = "1.0.1";
 const DEFAULT_SERVER = "https://www.forevercensus.com";
 const IS_EXE = sea.isSea();
 const INSTALL_DIR = path.join(process.env.LOCALAPPDATA ?? path.join(os.homedir(), ".local"), "ArqenCensus");
@@ -185,6 +185,10 @@ async function pass(config: Config, state: State, stable: Map<string, string> | 
 /** Pid of another live uploader, from the lock file. */
 function runningPid(): number | null {
   try {
+    // A lock from before the last boot is stale: shutdown skips the cleanup and
+    // Windows may hand the same pid to another process.
+    const bootedAt = Date.now() - os.uptime() * 1000;
+    if (statSync(LOCK_FILE).mtimeMs < bootedAt) return null;
     const pid = Number(readFileSync(LOCK_FILE, "utf8"));
     if (!pid || pid === process.pid) return null;
     process.kill(pid, 0); // throws if no such process
